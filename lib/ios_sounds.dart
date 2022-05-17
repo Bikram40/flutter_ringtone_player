@@ -13,9 +13,7 @@
 class IosSound {
   final int value;
 
-  const IosSound(int value)
-      : assert(value >= 1000),
-        assert(value <= 2000),
+  const IosSound(int value) :
         value = value;
 }
 

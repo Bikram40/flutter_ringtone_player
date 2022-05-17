@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -32,10 +33,11 @@ class FlutterRingtonePlayer {
   /// See also:
   ///  * [AndroidSounds]
   ///  * [IosSounds]
-  static Future<void> play(
+  static Future<int> play(
       {AndroidSound? android,
       IosSound? ios,
       String? fromAsset,
+      String? fromPath,
       double? volume,
       bool? looping,
       bool? asAlarm}) async {
@@ -50,19 +52,23 @@ class FlutterRingtonePlayer {
         throw "Please specify ios sound.";
       }
     } else {
-      fromAsset = await _generateAssetUri(fromAsset);
+      fromAsset = fromPath ?? await _generateAssetUri(fromAsset);
     }
     try {
       var args = <String, dynamic>{};
       if (android != null) args['android'] = android.value;
       if (ios != null) args['ios'] = ios.value;
-      if (fromAsset != null) args['uri'] = fromAsset;
+      if (fromAsset != null || (fromPath != null && fromPath.isNotEmpty))
+        args['uri'] = fromPath ?? fromAsset;
       if (looping != null) args['looping'] = looping;
       if (volume != null) args['volume'] = volume;
       if (asAlarm != null) args['asAlarm'] = asAlarm;
 
-      _channel.invokeMethod('play', args);
+      var d = await _channel.invokeMethod('play', args);
+      print('asfasdfas $d');
+      return d;
     } on PlatformException {}
+    return 0;
   }
 
   /// Play default alarm sound (looping on Android)
@@ -97,31 +103,32 @@ class FlutterRingtonePlayer {
 
   /// Stop looping sounds like alarms & ringtones on Android.
   /// This is no-op on iOS.
-  static Future<void> stop() async {
+  static Future<void> stop({IosSound? ios}) async {
     try {
-      _channel.invokeMethod('stop');
+      var args = <String, dynamic>{};
+      if (ios != null) args['ios'] = ios.value;
+      _channel.invokeMethod('stop', args);
     } on PlatformException {}
   }
 
   /// Generate asset uri according to platform.
   static Future<String> _generateAssetUri(String asset) async {
-    if (Platform.isAndroid) {
-      // read local asset from rootBundle
-      final byteData = await rootBundle.load(asset);
-
-      // create a temporary file on the device to be read by the native side
-      final file = File('${(await getTemporaryDirectory()).path}/$asset');
-      await file.create(recursive: true);
-      await file.writeAsBytes(byteData.buffer.asUint8List());
-      return file.uri.path;
-    } else if (Platform.isIOS) {
-      if (!['wav', 'mp3', 'aiff', 'caf']
-          .contains(asset.split('.').last.toLowerCase())) {
-        throw 'Format not supported for iOS. Only mp3, wav, aiff and caf formats are supported.';
-      }
-      return asset;
-    } else {
-      return asset;
-    }
+    // if (Platform.isAndroid) {
+    // read local asset from rootBundle
+    final byteData = await rootBundle.load(asset);
+    // create a temporary file on the device to be read by the native side
+    final file = File('${(await getTemporaryDirectory()).path}/$asset');
+    await file.create(recursive: true);
+    await file.writeAsBytes(byteData.buffer.asUint8List());
+    return file.uri.path;
+    // } else if (Platform.isIOS) {
+    //   if (!['wav', 'mp3', 'aiff', 'caf']
+    //       .contains(asset.split('.').last.toLowerCase())) {
+    //     throw 'Format not supported for iOS. Only mp3, wav, aiff and caf formats are supported.';
+    //   }
+    //   return asset;
+    // } else {
+    //   return asset;
+    // }
   }
 }
